@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <SPI.h>
+#include "credentials.h"
+
 
 //bits para atuar a entrada digital do inversor. Necessário utilizar o "run" para ligar e desligar o inversor, 
 //mesmo usando a entrada analógica.
@@ -13,7 +15,7 @@
 //rede e socket
 #define SSID "Andre"
 #define PASS "marcelinho"
-#define HOSTNAME "Inversor"
+#define HOSTNAME "Ventilador"
 #define PORTA 6969
 IPAddress local_IP(192,168,1,169);
 IPAddress gateway(192, 168, 1, 1);
