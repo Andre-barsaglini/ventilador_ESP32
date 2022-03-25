@@ -5,7 +5,6 @@
 #include <ArduinoOTA.h>
 #include "credentials.h"
 
-
 //bits para atuar a entrada digital do inversor. Necessário utilizar o "run" para ligar e desligar o inversor, 
 //mesmo usando a entrada analógica.
 #define RUNADDR 17
@@ -14,10 +13,13 @@
 #define BIT3ADDR 15
 #define SPI_CS 22
 
+//buffers
+#define BUFFERLEN 5 //tamanho em bytes do buffer que armazena a mensagem recebida         
+
 //rede e socket. credenciais do wifi devem ser mantidas no arquivo credentials.h 
 #define HOSTNAME "Ventilador" //wireless
-#define PORTA 6969            //socket
-#define PERIODO 1000          //periodo de reconexao e update em ms
+#define PORTA 6969 //socket
+#define PERIODO 1000 //periodo de reconexao e update em ms
 IPAddress local_IP(192,168,1,169);  //wireless
 IPAddress gateway(192, 168, 1, 1);  //wireless
 IPAddress subnet(255, 255, 0, 0);   //wireless
@@ -25,7 +27,6 @@ WiFiServer sv(PORTA); //socket
 WiFiClient cl;        //socket
 
 // configurações e modos
-bool serialOutput = false; // liga ou desliga todas as mensagens de teste via serial
 bool closeAfterRec = false; // o host fecha o socket apos receber a mensagem
 
 //tasks
@@ -54,12 +55,12 @@ char mensagemTcpOut[64] = "0"; //ultima mensagem enviada via TCP
 int valorRecebido = 1; //armazena o valor recebido via TCP em um int
 char mode = 'a'; //modo de saida selecionado
 
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //SETUP e LOOP
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void setup() {
-  Serial.begin(9600);
   setupPins();
   setupWireless();
   launchTasks(); 
@@ -89,7 +90,7 @@ void taskTcpCode(void * parameters) {
     if (cl.connected()) {
         if (cl.available() > 0) {
           int i = 0;
-          char bufferEntrada[64] = "";
+          char bufferEntrada[BUFFERLEN] = "";
           while (cl.available() > 0) {
             char z = cl.read();
             bufferEntrada[i] = z;
@@ -138,7 +139,8 @@ void setupPins(){
   digitalWrite(BIT1ADDR, LOW);
   digitalWrite(BIT2ADDR, LOW);
   digitalWrite(BIT3ADDR, LOW);
-  pinMode (SPI_CS, OUTPUT); 
+  pinMode (SPI_CS, OUTPUT);
+  SPI.begin(); //inicializa o SPI 
 }
 
 void setupWireless(){
@@ -195,58 +197,41 @@ void connectWiFi() {
 }
 
 void checkValue() {
-  for(int y=0;y < strlen(mensagemTcpIn);y++){
-         Serial.println(mensagemTcpIn[y],DEC);
-         Serial.println(mensagemTcpIn[y]);
-  }
   if (strcmp(mensagemTcpIn,"a\r")==0){
     mensagemTcpOut[0] = '2';
     cl.print(mensagemTcpOut);
     mode = 'a';
-    // Serial.println("\n\nAlterando para saida analogica");
   }
   else if (strcmp(mensagemTcpIn,"d\r")==0){
     mensagemTcpOut[0] = '2';
     cl.print(mensagemTcpOut);
     mode = 'd';
-    // Serial.println("\n\nAlterando para saida digital");
   }
   else if (strcmp(mensagemTcpIn,"s\r")==0){
     mensagemTcpOut[0] = '4';
     cl.print(mensagemTcpOut);
     RPMStop();
-    // Serial.println("\n\nParando o ventilador");
   }
   else if (strcmp(mensagemTcpIn,"r\r")==0){
     mensagemTcpOut[0] = '5';
     cl.print(mensagemTcpOut);
     RPMStart();
-    // Serial.println("\n\nIniciando o ventilador");
   }
   else if(atoi(mensagemTcpIn)<9 && atoi(mensagemTcpIn)>0 && mode == 'd'){
     valorRecebido = atoi(mensagemTcpIn);
     mensagemTcpOut[0] = '0';
     cl.print(mensagemTcpOut);
     xTaskCreatePinnedToCore(taskRPMCode,"task RPM",1000,NULL,1,&taskRPM,coreTask);
-    // Serial.println("\n\nAlterando valor na saida digital: ");
-    // Serial.println(valorRecebido);
   }
   else if (atoi(mensagemTcpIn)<257 && atoi(mensagemTcpIn)>0 && mode == 'a'){
     valorRecebido = atoi(mensagemTcpIn);
     mensagemTcpOut[0] = '0';
     cl.print(mensagemTcpOut);
     xTaskCreatePinnedToCore(taskRPMCode,"task RPM",1000,NULL,1,&taskRPM,coreTask);
-    // Serial.print("\n\nalterando valor na saida analogica: ");
-    // Serial.println(valorRecebido);
   }
   else {
       mensagemTcpOut[0] = '1';
       cl.print(mensagemTcpOut);
-      //Serial.println("\nerro: comando inexistente ou valor fora da faixa");
-       for(int y=0;y < strlen(mensagemTcpIn);y++){
-         Serial.println(mensagemTcpIn[y],DEC);
-         Serial.println(mensagemTcpIn[y]);
-       }
   }
 }
 
