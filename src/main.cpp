@@ -13,8 +13,6 @@
 #define SPI_CS 22
 
 //rede e socket
-#define SSID "Andre"
-#define PASS "marcelinho"
 #define HOSTNAME "Ventilador"
 #define PORTA 6969
 IPAddress local_IP(192,168,1,169);
