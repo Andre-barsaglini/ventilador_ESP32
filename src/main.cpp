@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <SPI.h>
+#include <WiFiUdp.h>
+#include <ArduinoOTA.h>
 #include "credentials.h"
 
 
@@ -12,14 +14,15 @@
 #define BIT3ADDR 15
 #define SPI_CS 22
 
-//rede e socket
-#define HOSTNAME "Ventilador"
-#define PORTA 6969
-IPAddress local_IP(192,168,1,169);
-IPAddress gateway(192, 168, 1, 1);
-IPAddress subnet(255, 255, 0, 0);
-WiFiServer sv(PORTA);
-WiFiClient cl;
+//rede e socket. credenciais do wifi devem ser mantidas no arquivo credentials.h 
+#define HOSTNAME "Ventilador" //wireless
+#define PORTA 6969            //socket
+#define PERIODO 1000          //periodo de reconexao e update em ms
+IPAddress local_IP(192,168,1,169);  //wireless
+IPAddress gateway(192, 168, 1, 1);  //wireless
+IPAddress subnet(255, 255, 0, 0);   //wireless
+WiFiServer sv(PORTA); //socket
+WiFiClient cl;        //socket
 
 // configurações e modos
 bool printTestMode = true; // liga ou desliga todas as mensagens de teste via serial
@@ -28,7 +31,7 @@ bool closeAfterRec = false; // o host fecha o socket apos receber a mensagem
 //tasks
 TaskHandle_t taskTcp, taskCheckConn, taskLoop, taskRPM;
 void taskTcpCode(void * parameter); // faz a comunicação via socket
-void taskCheckConnCode(void * parameters); //checa periodicamente o wifi
+void taskCheckConnCode(void * parameters); //checa periodicamente o wifi e verifica se tem atualização
 void taskRPMCode(void * parameters); // controla o inversor de frequencia
 
 //funcoes
@@ -59,6 +62,7 @@ char mode = 'a'; //modo de saida selecionado
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void setup() {
+  //setup dos pinos
   pinMode(RUNADDR, OUTPUT); 
   pinMode(BIT1ADDR, OUTPUT);
   pinMode(BIT2ADDR, OUTPUT);
@@ -68,16 +72,44 @@ void setup() {
   digitalWrite(BIT2ADDR, LOW);
   digitalWrite(BIT3ADDR, LOW);
   pinMode (SPI_CS, OUTPUT); 
-  SPI.begin(); //inicializa o SPI
-  Serial.begin(9600);
-  delay(2000);
+  //wireless
   if(!WiFi.config(local_IP, gateway, subnet)) { //configura o ip estatico
     Serial.println("falha na configuracao do WiFi!!");
   }
   connectWiFi(); //conecta wifi, posteriormente a conecção é mantida via task.
   delay(100);
   sv.begin(); // inicia o server para o socket
-  bootSequence(); // funcao que inicia as taks
+  //setup para OTA update
+  ArduinoOTA.setHostname("Ventilador");
+  // No authentication by default
+  // ArduinoOTA.setPassword("admin");
+  ArduinoOTA.onStart([]() {
+    String type;
+    if (ArduinoOTA.getCommand() == U_FLASH)
+      type = "sketch";
+    else // U_SPIFFS
+      type = "filesystem";
+
+    // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
+    Serial.println("Start updating " + type);
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  });
+  ArduinoOTA.begin();
+  // funcao que inicia as tasks
+  bootSequence(); 
 }
 
 void loop() {
@@ -91,7 +123,8 @@ void loop() {
 void taskCheckConnCode (void * parameters) {
   for (;;) {
     if (WiFi.status() == WL_CONNECTED){
-      vTaskDelay(1000/portTICK_PERIOD_MS);
+      vTaskDelay(PERIODO/portTICK_PERIOD_MS);
+      ArduinoOTA.handle();
       continue;
     }
     connectWiFi();
