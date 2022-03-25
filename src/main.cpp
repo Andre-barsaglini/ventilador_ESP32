@@ -25,7 +25,7 @@ WiFiServer sv(PORTA); //socket
 WiFiClient cl;        //socket
 
 // configurações e modos
-bool printTestMode = true; // liga ou desliga todas as mensagens de teste via serial
+bool serialOutput = false; // liga ou desliga todas as mensagens de teste via serial
 bool closeAfterRec = false; // o host fecha o socket apos receber a mensagem
 
 //tasks
@@ -35,16 +35,17 @@ void taskCheckConnCode(void * parameters); //checa periodicamente o wifi e verif
 void taskRPMCode(void * parameters); // controla o inversor de frequencia
 
 //funcoes
-void checkValue(); //avalia a mensagem recebida via tcp e 
-void connectWiFi(); 
-void bootSequence(); // dispara as tasks. 
+void setupPins(); //inicialização das saidas digitais e do SPI
+void setupWireless(); //inicialização do wireless e do update OTA
+void launchTasks(); // dispara as tasks.
+void connectWiFi(); //conecta o wifi. é repetida via tasks.
+void checkValue(); //avalia a mensagem recebida via tcp e ajusata as saidas
 void RPMAnalogico(); 
 void RPMDigital();
 void RPMStart();
 void RPMStop();
 void RPMCode();
 void pot(); // controla o potenciometro digital
-void printTest(); //função que printa via serial 
 
 //modo de operação e status
 int const coreTask = 0; //core onde rodarão as tasks nao relacionadas a comunicação (controle do pot/saidas digitais no caso)
@@ -53,16 +54,82 @@ char mensagemTcpOut[64] = "0"; //ultima mensagem enviada via TCP
 int valorRecebido = 1; //armazena o valor recebido via TCP em um int
 char mode = 'a'; //modo de saida selecionado
 
-//variaveis e funcoes de teste
-// int count = 0; //contagem para teste do loop principal 
-// void taskLoopCode(void * parameters);
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //SETUP e LOOP
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void setup() {
-  //setup dos pinos
+  Serial.begin(9600);
+  setupPins();
+  setupWireless();
+  launchTasks(); 
+}
+
+void loop() {
+  vTaskDelete(NULL); //não utiliza. as tasks lançadas no bootSequence rodam em loop.  
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//TASKS
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void taskCheckConnCode (void * parameters) {
+  for (;;) {
+    if (WiFi.status() == WL_CONNECTED){
+      vTaskDelay(PERIODO/portTICK_PERIOD_MS);
+      ArduinoOTA.handle();
+      continue;
+    }
+    connectWiFi();
+  }
+}
+
+void taskTcpCode(void * parameters) {
+  for (;;) {
+    if (cl.connected()) {
+        if (cl.available() > 0) {
+          int i = 0;
+          char bufferEntrada[64] = "";
+          while (cl.available() > 0) {
+            char z = cl.read();
+            bufferEntrada[i] = z;
+            i++;
+            if(z=='\r') {
+              bufferEntrada[i] = '\0';
+              i++;
+            }
+          }
+          strncpy(mensagemTcpIn,bufferEntrada,i);
+          if(closeAfterRec) {
+            cl.stop();
+          }
+          checkValue();
+        }
+    }
+    else {
+        cl = sv.available();//Disponabiliza o servidor para o cliente se conectar.
+        vTaskDelay(1000/portTICK_PERIOD_MS);
+    }
+  }
+}
+
+void taskRPMCode (void * parameters) {
+  if (mode == 'a') {
+    RPMAnalogico();
+    vTaskDelete(NULL);
+  }
+  else if (mode == 'd') {
+    RPMDigital();
+    vTaskDelete(NULL);
+  }
+
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//Funções
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void setupPins(){
   pinMode(RUNADDR, OUTPUT); 
   pinMode(BIT1ADDR, OUTPUT);
   pinMode(BIT2ADDR, OUTPUT);
@@ -72,11 +139,12 @@ void setup() {
   digitalWrite(BIT2ADDR, LOW);
   digitalWrite(BIT3ADDR, LOW);
   pinMode (SPI_CS, OUTPUT); 
-  //wireless
+}
+
+void setupWireless(){
   if(!WiFi.config(local_IP, gateway, subnet)) { //configura o ip estatico
-    Serial.println("falha na configuracao do WiFi!!");
   }
-  connectWiFi(); //conecta wifi, posteriormente a conecção é mantida via task.
+  connectWiFi(); 
   delay(100);
   sv.begin(); // inicia o server para o socket
   //setup para OTA update
@@ -108,103 +176,11 @@ void setup() {
     else if (error == OTA_END_ERROR) Serial.println("End Failed");
   });
   ArduinoOTA.begin();
-  // funcao que inicia as tasks
-  bootSequence(); 
 }
 
-void loop() {
-  vTaskDelete(NULL); //não utiliza. as tasks lançadas no bootSequence rodam em loop.  
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//TASKS
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-void taskCheckConnCode (void * parameters) {
-  for (;;) {
-    if (WiFi.status() == WL_CONNECTED){
-      vTaskDelay(PERIODO/portTICK_PERIOD_MS);
-      ArduinoOTA.handle();
-      continue;
-    }
-    connectWiFi();
-  }
-}
-
-
-
-void taskTcpCode(void * parameters) {
-  for (;;) {
-    if (cl.connected()) {
-        if (cl.available() > 0) {
-          int i = 0;
-          char bufferEntrada[64] = "";
-          while (cl.available() > 0) {
-            char z = cl.read();
-            bufferEntrada[i] = z;
-            i++;
-            if(z=='\r') {
-              bufferEntrada[i] = '\0';
-              i++;
-            }
-          }
-          strncpy(mensagemTcpIn,bufferEntrada,i);
-          if(closeAfterRec) {
-            cl.stop();
-          }
-          checkValue();
-        }
-    }
-    else {
-        // Serial.print("   nenhum cliente conectado...");
-        cl = sv.available();//Disponabiliza o servidor para o cliente se conectar.
-        vTaskDelay(1000/portTICK_PERIOD_MS);
-        Serial.println("conn offline");
-    }
-  }
-}
-
-void taskRPMCode (void * parameters) {
-  if (mode == 'a') {
-    RPMAnalogico();
-    vTaskDelete(NULL);
-  }
-  else if (mode == 'd') {
-    RPMDigital();
-    vTaskDelete(NULL);
-  }
-
-}
-
-// void taskLoopCode (void * parameters) {
-//   for (;;) {
-//     Serial.print("\ncontagem: ");
-//     Serial.print(count);
-//     count++;
-//     Serial.print("  ultimo valor recebido: ");
-//     Serial.print(valorRecebido);
-//     Serial.print("  modo atual:");
-//     Serial.print(mode);
-//     Serial.print("  mensagemTcpIn: ");
-//     Serial.print(mensagemTcpIn);
-//     Serial.print("\n  valor de atoi: ");
-//     Serial.print(atoi(mensagemTcpIn));    
-//     vTaskDelay(2000/portTICK_PERIOD_MS);
-//   }
-// }
-
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//Funções
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-void bootSequence (){
+void launchTasks (){
   delay(2000);
-  // Serial.println("criando task de reconexao...");
   xTaskCreatePinnedToCore(taskCheckConnCode,"conexao wifi",5000,NULL,1,&taskCheckConn,CONFIG_ARDUINO_RUNNING_CORE);
-  //Serial.println("criando task de loop...");
-  //xTaskCreatePinnedToCore(taskLoopCode,"task principal",1000,NULL,1,&taskLoop,coreTask);
-  // Serial.println("criando task de TCP...");
   xTaskCreatePinnedToCore(taskTcpCode,"task TCP",2000,NULL,1,&taskTcp,CONFIG_ARDUINO_RUNNING_CORE);
   pot();
 }
@@ -213,14 +189,9 @@ void connectWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.setHostname(HOSTNAME);
   WiFi.begin(SSID, PASS);
-  // Serial.print("Conectando ao WiFi.");
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
-    // Serial.println(".");
   }
-  // Serial.println("Connectado ao WiFi!!");
-  // Serial.print("IP:");
-  // Serial.println(WiFi.localIP()); 
 }
 
 void checkValue() {
@@ -349,8 +320,4 @@ void pot() {
   SPI.transfer(0x11);
   SPI.transfer(valorRecebido-1);
   digitalWrite(SPI_CS, HIGH);
-}
-
-void printTest(){
-
 }
