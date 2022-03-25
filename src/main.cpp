@@ -30,7 +30,7 @@ WiFiClient cl;        //socket
 bool closeAfterRec = false; // o host fecha o socket apos receber a mensagem
 
 //tasks
-TaskHandle_t taskTcp, taskCheckConn, taskLoop, taskRPM;
+TaskHandle_t taskTcp, taskCheckConn, taskRPM;
 void taskTcpCode(void * parameter); // faz a comunicação via socket
 void taskCheckConnCode(void * parameters); //checa periodicamente o wifi e verifica se tem atualização
 void taskRPMCode(void * parameters); // controla o inversor de frequencia
@@ -38,6 +38,7 @@ void taskRPMCode(void * parameters); // controla o inversor de frequencia
 //funcoes
 void setupPins(); //inicialização das saidas digitais e do SPI
 void setupWireless(); //inicialização do wireless e do update OTA
+void setupOTA(); //inicializa o serviço de upload OTA do codigo
 void launchTasks(); // dispara as tasks.
 void connectWiFi(); //conecta o wifi. é repetida via tasks.
 void checkValue(); //avalia a mensagem recebida via tcp e ajusata as saidas
@@ -63,11 +64,12 @@ char mode = 'a'; //modo de saida selecionado
 void setup() {
   setupPins();
   setupWireless();
+  setupOTA();
   launchTasks(); 
 }
 
 void loop() {
-  vTaskDelete(NULL); //não utiliza. as tasks lançadas no bootSequence rodam em loop.  
+  vTaskDelete(NULL); //não utiliza o void loop. As tasks lançadas no launchTasks.  
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -149,7 +151,10 @@ void setupWireless(){
   connectWiFi(); 
   delay(100);
   sv.begin(); // inicia o server para o socket
-  //setup para OTA update
+  
+}
+
+void setupOTA(){
   ArduinoOTA.setHostname("Ventilador");
   // No authentication by default
   // ArduinoOTA.setPassword("admin");
