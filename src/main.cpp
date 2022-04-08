@@ -20,8 +20,8 @@
 #define HOSTNAME "Ventilador" //wireless
 #define PORTA 6969 //socket
 #define PERIODO 1000 //periodo de reconexao e update em ms
-IPAddress local_IP(192,168,1,169);  //wireless
-IPAddress gateway(192, 168, 1, 1);  //wireless
+IPAddress local_IP(192,168,0,169);  //wireless
+IPAddress gateway(192, 168, 0, 1);  //wireless
 IPAddress subnet(255, 255, 0, 0);   //wireless
 WiFiServer sv(PORTA); //socket
 WiFiClient cl;        //socket
@@ -54,7 +54,7 @@ int const coreTask = 0; //core onde rodarão as tasks nao relacionadas a comunic
 char mensagemTcpIn[64] = ""; //variavel global com a mensagem recebiada via TCP
 char mensagemTcpOut[64] = "0"; //ultima mensagem enviada via TCP
 int valorRecebido = 1; //armazena o valor recebido via TCP em um int
-char mode = 'a'; //modo de saida selecionado
+char mode = 'd'; //modo de saida selecionado
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -251,9 +251,9 @@ void RPMDigital() {
     digitalWrite(BIT3ADDR, LOW);
   }
   else if(valorRecebido == 2 ) {
-    digitalWrite(BIT1ADDR, LOW);
+    digitalWrite(BIT1ADDR, HIGH);
     digitalWrite(BIT2ADDR, LOW);
-    digitalWrite(BIT3ADDR, HIGH);
+    digitalWrite(BIT3ADDR, LOW);
   }
   else if(valorRecebido == 3 ) {
     digitalWrite(BIT1ADDR, LOW);
@@ -261,14 +261,14 @@ void RPMDigital() {
     digitalWrite(BIT3ADDR, LOW);
   }
   else if(valorRecebido == 4 ) {
-    digitalWrite(BIT1ADDR, LOW);
+    digitalWrite(BIT1ADDR, HIGH);
     digitalWrite(BIT2ADDR, HIGH);
-    digitalWrite(BIT3ADDR, HIGH);
+    digitalWrite(BIT3ADDR, LOW);
   }
   else if(valorRecebido == 5 ) {
-    digitalWrite(BIT1ADDR, HIGH);
+    digitalWrite(BIT1ADDR, LOW);
     digitalWrite(BIT2ADDR, LOW);
-    digitalWrite(BIT3ADDR, LOW);
+    digitalWrite(BIT3ADDR, HIGH);
   }
   else if(valorRecebido == 6 ) {
     digitalWrite(BIT1ADDR, HIGH);
@@ -276,9 +276,9 @@ void RPMDigital() {
     digitalWrite(BIT3ADDR, HIGH);
   }
   else if(valorRecebido == 7 ) {
-    digitalWrite(BIT1ADDR, HIGH);
+    digitalWrite(BIT1ADDR, LOW);
     digitalWrite(BIT2ADDR, HIGH);
-    digitalWrite(BIT3ADDR, LOW);
+    digitalWrite(BIT3ADDR, HIGH);
   }
   else if(valorRecebido == 8 ) {
     digitalWrite(BIT1ADDR, HIGH);
