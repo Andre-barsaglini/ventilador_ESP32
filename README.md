@@ -32,5 +32,8 @@ O controle funciona atuando as entradas digitais do CFW09 utilizando o recurso m
 
 O protótipo está instalado em uma caixa patola preta no trilho din dentro do painel e tem a etiqueta controle do inversor. 
 
+Caso a intenção seja concluir a implementação do controle analógico é interessante instalar um ADC para leitura da saída analógica do inversor.  
+
 ## Funcionamento e código
-O ESP roda tasks separadas para cada coisa. No setup Ele configura os pinos, conectividade e roda a task (taskTcpCode) que checa por mensagens via TCP.
+O ESP roda um setup para configurar os pinos e a conectividade, desativa a task de loop e roda duas tasks, uma para checar periodicamente a conectividade e outra para aguardar a mensagem via socket. Quando uma mensagem é recebida e reconhecida ele dispara uma outra taks para efetuar a atuação conforme o comando recebido, e após a conclusão encerra a task. Existe a opção de encerrar também o socket após recebida a mensagem, o que pode ser configurado na variavel closeAfterRec.
+
