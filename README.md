@@ -23,8 +23,8 @@
 * "d\r" - configura o microcontrolador para funcionar de forma digital (multispeed). o ESP responde 2 se ok.
 * "r\r" - run (liga o ventilador). o ESP responde 5 se ok.
 * "s\r" - stop (desliga o ventilador). o ESP responde 4 se ok.
-* no modo digital: valores entre 1 e 8 selecionam as velocidades correspondentes. o ESP responde 0 se ok.
-* no modo analogico: valores entre 1 e 256 selecionam o valor do cursor do potenciometro. o ESP responde 0 se ok.
+* no modo digital: valores entre 1 e 8 + "\r" selecionam as velocidades correspondentes. o ESP responde 0 se ok.
+* no modo analogico: valores entre 1 e 256 + "\r" selecionam o valor do cursor do potenciometro. o ESP responde 0 se ok.
 * qualquer comando diferente desses o ESP responde 1
   
 ## Descrição do protótipo
