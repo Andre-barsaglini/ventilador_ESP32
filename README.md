@@ -1,13 +1,18 @@
 # Controle remoto do ventilador do Túnel de Vento
 
 ## Informações importantes
-* conectividade
+
+#### conectividade
 IP: 162.168.0.169
 Porta:6969
-* pinos
+
+
+#### pinos
 liga e desliga o ventilador: 17
 saidas digitais: 4,2,15
-* componentes
+
+
+#### componentes
 ESP32 
 ULN2003 (saidas digitais)
 MCP41010 (pot digital)
